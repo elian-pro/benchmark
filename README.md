@@ -56,6 +56,32 @@ Si `npm install` falla por restricciones de red, usa el servidor HTTP simple:
 
 **Obtén tu API key:** https://ai.google.dev/gemini-api/docs/api-key
 
+## Deploy with Docker
+
+**Prerequisites:** Docker
+
+### Build and Run
+
+```bash
+# Build the image
+docker build -t ad-intel-pro .
+
+# Run the container
+docker run -d -p 80:80 --name ad-intel-pro ad-intel-pro
+```
+
+### Configure API Key
+
+1. Open http://localhost in your browser
+2. Open browser console (F12)
+3. Set your API key:
+   ```javascript
+   localStorage.setItem('GEMINI_API_KEY', 'your_api_key_here')
+   ```
+4. Reload the page
+
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ### Solución de Problemas
 
 Si encuentras errores de inicio, consulta [STARTUP_FIX.md](STARTUP_FIX.md) para:
