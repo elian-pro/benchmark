@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Inyecta la variable de entorno al código cliente
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
+    // Use placeholder for runtime injection in Docker
+    // Falls back to build-time env var for local development
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || '__RUNTIME_API_KEY__')
   },
   build: {
     outDir: 'dist',

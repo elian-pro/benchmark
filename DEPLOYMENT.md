@@ -10,9 +10,31 @@ docker build -t ad-intel-pro .
 
 ### Running the Container
 
+**Option 1: With environment variable (Recommended)**
+
+```bash
+docker run -d -p 80:80 \
+  -e API_KEY=your_gemini_api_key_here \
+  --name ad-intel-pro \
+  ad-intel-pro
+```
+
+Or using GEMINI_API_KEY:
+
+```bash
+docker run -d -p 80:80 \
+  -e GEMINI_API_KEY=your_gemini_api_key_here \
+  --name ad-intel-pro \
+  ad-intel-pro
+```
+
+**Option 2: Without environment variable**
+
 ```bash
 docker run -d -p 80:80 --name ad-intel-pro ad-intel-pro
 ```
+
+Then configure via localStorage (see below).
 
 ### Accessing the Application
 
@@ -20,7 +42,21 @@ Open http://localhost in your browser.
 
 ## API Key Configuration
 
-Since this is a static build served by nginx, the API key needs to be configured in the browser:
+The application supports **three ways** to configure the API key:
+
+### 1. Environment Variable (Recommended for Docker)
+
+Pass the API key when running the container:
+
+```bash
+docker run -d -p 80:80 -e API_KEY=your_key_here --name ad-intel-pro ad-intel-pro
+```
+
+The container will automatically inject the API key into the application at startup. ✅
+
+### 2. LocalStorage (Fallback)
+
+If no environment variable is provided, configure via browser:
 
 1. Open the application in your browser
 2. Open the browser console (F12)
@@ -30,33 +66,30 @@ Since this is a static build served by nginx, the API key needs to be configured
    ```
 4. Reload the page
 
+### 3. Build-time (Local Development)
+
+When running locally with npm:
+
+1. Create `.env.local`:
+   ```env
+   API_KEY=your_gemini_api_key_here
+   ```
+2. Run `npm run dev`
+
 **Get your API key:** https://ai.google.dev/gemini-api/docs/api-key
-
-### Alternative: Build-time API Key (Not Recommended for Security)
-
-If you want to bake the API key into the build (not recommended for production):
-
-```bash
-docker build --build-arg API_KEY=your_api_key_here -t ad-intel-pro .
-```
-
-You'll need to modify the Dockerfile to accept and use this build arg:
-
-```dockerfile
-# In builder stage
-ARG API_KEY
-ENV API_KEY=$API_KEY
-```
-
-**Warning:** This embeds the API key in the built files, which is a security risk.
 
 ## Easypanel Deployment
 
 For Easypanel deployments:
 
-1. The system will automatically detect the `Dockerfile`
-2. Build arguments can be set in the Easypanel dashboard
-3. Environment variables should be configured in the Easypanel settings
+1. The system will automatically detect the `Dockerfile` and build the image
+2. **Configure environment variables** in the "Entorno" (Environment) section:
+   - Variable name: `API_KEY` (or `GEMINI_API_KEY`)
+   - Value: Your Gemini API key
+3. The application will automatically use the environment variable at runtime
+4. No need to configure localStorage - it just works! ✅
+
+**Note:** Both `API_KEY` and `GEMINI_API_KEY` variable names are supported.
 
 ## Nginx Configuration
 

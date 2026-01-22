@@ -66,11 +66,18 @@ Si `npm install` falla por restricciones de red, usa el servidor HTTP simple:
 # Build the image
 docker build -t ad-intel-pro .
 
-# Run the container
-docker run -d -p 80:80 --name ad-intel-pro ad-intel-pro
+# Run with API key (recommended)
+docker run -d -p 80:80 \
+  -e API_KEY=your_gemini_api_key_here \
+  --name ad-intel-pro \
+  ad-intel-pro
 ```
 
-### Configure API Key
+The application will automatically use the API key from the environment variable.
+
+### Alternative: Configure API Key via Browser
+
+If you run without the `-e API_KEY` flag:
 
 1. Open http://localhost in your browser
 2. Open browser console (F12)
