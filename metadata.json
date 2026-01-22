@@ -1,0 +1,5 @@
+{
+  "name": "Benchmark Explorer AI",
+  "description": "A powerful tool to analyze long texts or PDF documents and find relevant industry benchmarks using AI-powered web searching.",
+  "requestFramePermissions": []
+}
