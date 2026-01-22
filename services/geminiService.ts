@@ -6,7 +6,19 @@ export const analyzeBenchmark = async (
   text: string,
   files: FileData[]
 ): Promise<BenchmarkResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Intenta obtener la API key de process.env o localStorage
+  const apiKey = process.env.API_KEY ||
+                 (typeof window !== 'undefined' ? localStorage.getItem('GEMINI_API_KEY') : null);
+
+  if (!apiKey) {
+    throw new Error(
+      'API Key no configurada. ' +
+      'Configura localStorage.setItem("GEMINI_API_KEY", "tu_clave") ' +
+      'o define API_KEY en .env.local'
+    );
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const modelName = 'gemini-3-pro-preview';
   
