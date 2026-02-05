@@ -76,8 +76,8 @@ const App: React.FC = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-black text-black leading-tight tracking-tight uppercase">Ad Intel Pro</h1>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Black Edition</p>
+              <h1 className="text-lg font-black text-black leading-tight tracking-tight uppercase">Zebra Benchmarking</h1>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Intelligence Platform</p>
             </div>
           </div>
           <button 

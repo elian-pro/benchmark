@@ -64,13 +64,13 @@ Si `npm install` falla por restricciones de red, usa el servidor HTTP simple:
 
 ```bash
 # Build the image
-docker build -t ad-intel-pro .
+docker build -t zebra-benchmarking .
 
 # Run with API key (recommended)
 docker run -d -p 80:80 \
   -e API_KEY=your_gemini_api_key_here \
-  --name ad-intel-pro \
-  ad-intel-pro
+  --name zebra-benchmarking \
+  zebra-benchmarking
 ```
 
 The application will automatically use the API key from the environment variable.

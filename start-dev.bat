@@ -1,6 +1,6 @@
 @echo off
 echo =========================================
-echo   Ad Intel Pro - Servidor de Desarrollo
+echo   Zebra Benchmarking - Dev Server
 echo =========================================
 echo.
 echo WARNING: Usando servidor HTTP simple (sin Vite)

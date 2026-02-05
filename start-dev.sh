@@ -4,7 +4,7 @@
 # Usa un servidor HTTP simple en lugar de Vite
 
 echo "========================================="
-echo "  Ad Intel Pro - Servidor de Desarrollo"
+echo "  Zebra Benchmarking - Dev Server"
 echo "========================================="
 echo ""
 echo "⚠️  Usando servidor HTTP simple (sin Vite)"

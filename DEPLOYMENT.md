@@ -5,7 +5,7 @@
 ### Building the Image
 
 ```bash
-docker build -t ad-intel-pro .
+docker build -t zebra-benchmarking .
 ```
 
 ### Running the Container
@@ -15,8 +15,8 @@ docker build -t ad-intel-pro .
 ```bash
 docker run -d -p 80:80 \
   -e API_KEY=your_gemini_api_key_here \
-  --name ad-intel-pro \
-  ad-intel-pro
+  --name zebra-benchmarking \
+  zebra-benchmarking
 ```
 
 Or using GEMINI_API_KEY:
@@ -24,14 +24,14 @@ Or using GEMINI_API_KEY:
 ```bash
 docker run -d -p 80:80 \
   -e GEMINI_API_KEY=your_gemini_api_key_here \
-  --name ad-intel-pro \
-  ad-intel-pro
+  --name zebra-benchmarking \
+  zebra-benchmarking
 ```
 
 **Option 2: Without environment variable**
 
 ```bash
-docker run -d -p 80:80 --name ad-intel-pro ad-intel-pro
+docker run -d -p 80:80 --name zebra-benchmarking zebra-benchmarking
 ```
 
 Then configure via localStorage (see below).
@@ -49,7 +49,7 @@ The application supports **three ways** to configure the API key:
 Pass the API key when running the container:
 
 ```bash
-docker run -d -p 80:80 -e API_KEY=your_key_here --name ad-intel-pro ad-intel-pro
+docker run -d -p 80:80 -e API_KEY=your_key_here --name zebra-benchmarking zebra-benchmarking
 ```
 
 The container will automatically inject the API key into the application at startup. ✅
