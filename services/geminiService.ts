@@ -89,8 +89,17 @@ export const analyzeBenchmark = async (
       }
     });
 
-    const data = JSON.parse(response.text || "{}");
-    
+    let data;
+    try {
+      data = JSON.parse(response.text || "{}");
+    } catch (parseError) {
+      console.error("Gemini JSON Parse Error:", parseError, response.text);
+      throw new Error(
+        "La IA respondió en un formato inesperado y no pudimos leer los resultados. " +
+        "Vuelve a intentarlo; si persiste, reformula el contexto del negocio."
+      );
+    }
+
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
       .filter((chunk: any) => chunk.web)
@@ -109,8 +118,93 @@ export const analyzeBenchmark = async (
       communicationStrategy: data.communicationStrategy || "No definida.",
       sources: sources
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error("No pudimos obtener datos detallados. Revisa que el texto incluya un producto y zona clara.");
+
+    // Si ya lanzamos un mensaje específico (ej. parseo de JSON), respétalo.
+    if (error instanceof Error && error.message.startsWith("La IA respondió")) {
+      throw error;
+    }
+
+    // Reúne toda la información disponible del error para clasificarlo.
+    const status: number | undefined =
+      error?.status ?? error?.code ?? error?.response?.status;
+    const rawMessage: string = (
+      error?.message ||
+      error?.error?.message ||
+      String(error ?? "")
+    ).toLowerCase();
+
+    // 1. API Key inválida o sin permisos (401 / 403).
+    if (
+      status === 401 ||
+      status === 403 ||
+      rawMessage.includes("api key not valid") ||
+      rawMessage.includes("api_key_invalid") ||
+      rawMessage.includes("permission denied") ||
+      rawMessage.includes("permission_denied") ||
+      rawMessage.includes("unauthenticated")
+    ) {
+      throw new Error(
+        "La API Key de Gemini no es válida o no tiene permisos. " +
+        "Verifica que la clave sea correcta y esté activa en Google AI Studio."
+      );
+    }
+
+    // 2. Modelo no encontrado o no disponible para esta clave (404).
+    if (
+      status === 404 ||
+      rawMessage.includes("not found") ||
+      rawMessage.includes("is not supported") ||
+      rawMessage.includes("does not exist")
+    ) {
+      throw new Error(
+        `El modelo "${modelName}" no está disponible para tu cuenta o no existe. ` +
+        "Revisa que tu API Key tenga acceso a este modelo."
+      );
+    }
+
+    // 3. Cuota agotada o límite de peticiones (429).
+    if (
+      status === 429 ||
+      rawMessage.includes("quota") ||
+      rawMessage.includes("rate limit") ||
+      rawMessage.includes("resource_exhausted") ||
+      rawMessage.includes("resource exhausted")
+    ) {
+      throw new Error(
+        "Se agotó la cuota o superaste el límite de peticiones de la API de Gemini. " +
+        "Espera unos minutos o revisa tu plan y facturación en Google AI Studio."
+      );
+    }
+
+    // 4. Error del servidor de Gemini (5xx).
+    if (status !== undefined && status >= 500 && status < 600) {
+      throw new Error(
+        "El servicio de Gemini tuvo un problema temporal (error del servidor). " +
+        "Vuelve a intentarlo en unos momentos."
+      );
+    }
+
+    // 5. Problemas de red / conexión.
+    if (
+      rawMessage.includes("failed to fetch") ||
+      rawMessage.includes("network") ||
+      rawMessage.includes("networkerror") ||
+      rawMessage.includes("etimedout") ||
+      rawMessage.includes("timeout")
+    ) {
+      throw new Error(
+        "No pudimos conectar con el servicio de Gemini. " +
+        "Revisa tu conexión a internet e inténtalo de nuevo."
+      );
+    }
+
+    // 6. Fallback: muestra el detalle real para facilitar el diagnóstico.
+    const detail = error?.message || error?.error?.message;
+    throw new Error(
+      "Ocurrió un error al generar la investigación" +
+      (detail ? `: ${detail}` : ". Inténtalo de nuevo.")
+    );
   }
 };
