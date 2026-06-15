@@ -20,7 +20,13 @@ export const analyzeBenchmark = async (
 
   const ai = new GoogleGenAI({ apiKey });
   
-  const modelName = 'gemini-3-pro-preview';
+  // Permite sobreescribir el modelo vía variable de entorno o localStorage.
+  // Por defecto usa un modelo estable y disponible (no un "preview" que puede
+  // descontinuarse). Cambia a 'gemini-3-pro' si tu cuenta tiene acceso.
+  const modelName =
+    process.env.GEMINI_MODEL ||
+    (typeof window !== 'undefined' ? localStorage.getItem('GEMINI_MODEL') : null) ||
+    'gemini-2.5-pro';
   
   const fileParts = files.map(file => ({
     inlineData: {
