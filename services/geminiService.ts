@@ -2,6 +2,38 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { FileData, BenchmarkResult } from "../types";
 
+// Extrae el objeto JSON de la respuesta de la IA. El texto puede venir
+// envuelto en bloques de código markdown (```json ... ```) o con texto
+// adicional antes/después, así que lo limpiamos antes de parsear.
+const extractJson = (raw: string): any => {
+  let text = raw.trim();
+
+  // Quita las cercas de código markdown si existen.
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) {
+    text = fenceMatch[1].trim();
+  }
+
+  // Como respaldo, recorta a partir de la primera llave hasta la última.
+  if (!text.startsWith("{")) {
+    const first = text.indexOf("{");
+    const last = text.lastIndexOf("}");
+    if (first !== -1 && last !== -1 && last > first) {
+      text = text.slice(first, last + 1);
+    }
+  }
+
+  try {
+    return JSON.parse(text || "{}");
+  } catch (parseError) {
+    console.error("Gemini JSON Parse Error:", parseError, raw);
+    throw new Error(
+      "La IA respondió en un formato inesperado y no pudimos leer los resultados. " +
+      "Vuelve a intentarlo; si persiste, reformula el contexto del negocio."
+    );
+  }
+};
+
 export const analyzeBenchmark = async (
   text: string,
   files: FileData[]
@@ -90,21 +122,14 @@ export const analyzeBenchmark = async (
         ]
       },
       config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json"
+        // NOTA: googleSearch y responseMimeType:"application/json" son
+        // incompatibles en la API de Gemini. Por eso pedimos el JSON dentro
+        // del texto y lo extraemos manualmente más abajo.
+        tools: [{ googleSearch: {} }]
       }
     });
 
-    let data;
-    try {
-      data = JSON.parse(response.text || "{}");
-    } catch (parseError) {
-      console.error("Gemini JSON Parse Error:", parseError, response.text);
-      throw new Error(
-        "La IA respondió en un formato inesperado y no pudimos leer los resultados. " +
-        "Vuelve a intentarlo; si persiste, reformula el contexto del negocio."
-      );
-    }
+    const data = extractJson(response.text || "");
 
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
