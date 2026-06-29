@@ -9,10 +9,61 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Design System de Zebra: Inter (texto) + JetBrains Mono (eyebrows/labels) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Puente Tailwind -> tokens del Design System (theme-aware via [data-ds-theme]) -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              bg: 'var(--bg)',
+              surface: 'var(--surface)',
+              'surface-2': 'var(--surface-2)',
+              text: 'var(--text)',
+              muted: 'var(--text-muted)',
+              accent: 'var(--accent)',
+              line: 'var(--border)',
+              'line-strong': 'var(--border-strong)',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+            },
+            borderRadius: {
+              chip: 'var(--r-chip)',
+              control: 'var(--r-control)',
+              input: 'var(--r-input)',
+              btn: 'var(--r-btn)',
+              card: 'var(--r-card)',
+              pill: 'var(--r-pill)',
+            },
+            boxShadow: {
+              sm: 'var(--shadow-sm)',
+              md: 'var(--shadow-md)',
+              lg: 'var(--shadow-lg)',
+              xl: 'var(--shadow-xl)',
+              '2xl': 'var(--shadow-2xl)',
+            },
+          },
+        },
+      };
+    </script>
+    <!-- Tema inicial sin parpadeo: localStorage > preferencia del sistema (ZR-21) -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('ZEBRA_THEME');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = saved || (prefersDark ? 'dark' : 'light');
+          if (theme === 'dark') document.documentElement.setAttribute('data-ds-theme', 'dark');
+        } catch (e) {}
+      })();
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #fafafa;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color .3s ease, color .3s ease;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -20,6 +71,10 @@
         }
         .animate-fade-in {
             animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        /* Reduced-motion: el contenido se revela igual, solo se anula la transición (ZR-27) */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-fade-in { animation: none; }
         }
     </style>
 <script type="importmap">

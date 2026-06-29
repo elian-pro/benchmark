@@ -79,6 +79,9 @@
   --ink:     #FFFFFF;
 }
 
+/* Logo: en dark se invierte a blanco (ZR-12). No se recolorea ni se distorsiona. */
+[data-ds-theme="dark"] .dark-invert { filter: invert(1); }
+
 /* MOTIF "Stripes" (marca Zebra) — clase utilitaria para WEB.
    Uso: contenedor con position:relative; <span class="zebra-motif"></span> como capa de fondo.
    - SIEMPRE detras del contenido (z-index:-1) y NUNCA sobre cards (ZR-20).
