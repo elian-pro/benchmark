@@ -70,14 +70,10 @@ const App: React.FC = () => {
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center shadow-2xl">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-black leading-tight tracking-tight uppercase">Zebra Benchmarking</h1>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Intelligence Platform</p>
+            <img src="/assets/logo-zebra.svg" alt="Zebra" className="h-5 w-auto" />
+            <div className="pl-3 border-l border-slate-200">
+              <h1 className="text-lg font-black text-black leading-tight tracking-tight uppercase">Benchmarking</h1>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>Intelligence Platform</p>
             </div>
           </div>
           <button 
