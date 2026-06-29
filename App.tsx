@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<BenchmarkResult | null>(null);
 
@@ -48,14 +49,16 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setReport(null);
+    setLiveStatus(null);
 
     try {
-      const result = await analyzeBenchmark(inputText, files);
+      const result = await analyzeBenchmark(inputText, files, setLiveStatus);
       setReport(result);
     } catch (err: any) {
       setError(err.message || "Error al investigar el mercado.");
     } finally {
       setLoading(false);
+      setLiveStatus(null);
     }
   };
 
@@ -152,7 +155,7 @@ const App: React.FC = () => {
                       <span>Procesando...</span>
                     </div>
                     <p className="text-[11px] mt-4 font-medium text-muted tracking-[0.2em] px-8 text-center uppercase font-mono">
-                      {LOADING_STEPS[loadingStep]}
+                      {liveStatus || LOADING_STEPS[loadingStep]}
                     </p>
                   </div>
                 ) : (

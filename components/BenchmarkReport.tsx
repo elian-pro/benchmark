@@ -1,10 +1,27 @@
 
 import React from 'react';
-import { BenchmarkResult } from '../types';
+import { BenchmarkResult, Confidence } from '../types';
+import PositioningMap from './PositioningMap';
 
 interface BenchmarkReportProps {
   report: BenchmarkResult;
 }
+
+// Badge de confianza tras la verificación cruzada. Monocromático (ZR-05).
+const ConfidenceBadge: React.FC<{ level?: Confidence; note?: string }> = ({ level, note }) => {
+  if (!level) return null;
+  const label = level === 'alta' ? 'Verificado' : level === 'media' ? 'Probable' : 'Sin confirmar';
+  const opacity = level === 'alta' ? 'opacity-100' : level === 'media' ? 'opacity-70' : 'opacity-45';
+  return (
+    <span
+      title={note || undefined}
+      className={`inline-flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-wider font-mono text-muted ${opacity}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+      {label}
+    </span>
+  );
+};
 
 const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
   return (
@@ -39,7 +56,10 @@ const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
             <div key={idx} className="bg-surface rounded-card border border-line shadow-sm overflow-hidden flex flex-col hover:border-accent transition-all group">
               <div className="p-8 pb-6">
                 <div className="flex justify-between items-start mb-6">
-                  <h4 className="text-2xl font-semibold text-text">{comp.name}</h4>
+                  <div className="space-y-1.5">
+                    <h4 className="text-2xl font-semibold text-text">{comp.name}</h4>
+                    <ConfidenceBadge level={comp.confidence} note={comp.verificationNote} />
+                  </div>
                   {comp.url && (
                     <a href={comp.url} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${comp.name}`} className="p-2.5 bg-surface-2 rounded-control text-muted hover:text-text transition-all">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -77,16 +97,57 @@ const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
                   </ul>
                 </div>
               </div>
-              <div className="mt-auto bg-surface-2 p-5 border-t border-line flex items-center justify-between">
-                <span className="text-[10px] font-medium text-muted uppercase font-mono">Verified Entry</span>
-                <div className="w-12 h-1 bg-line rounded-pill overflow-hidden">
-                    <div className="w-full h-full bg-accent"></div>
-                </div>
+              <div className="mt-auto bg-surface-2 p-5 border-t border-line">
+                <p className="text-[9px] font-medium text-muted uppercase tracking-[0.2em] font-mono mb-2">
+                  Fuentes ({comp.sources?.length || 0})
+                </p>
+                {comp.sources && comp.sources.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {comp.sources.slice(0, 3).map((s, sIdx) => (
+                      <a
+                        key={sIdx}
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 bg-surface border border-line rounded-chip text-[9px] font-medium text-muted hover:text-text hover:border-accent transition-all truncate max-w-[140px]"
+                      >
+                        {s.title}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-muted font-normal">Sin fuentes directas.</span>
+                )}
               </div>
             </div>
           ))}
         </div>
       </section>
+
+      {/* Mapa de posicionamiento precio vs valor (#4) */}
+      {report.positioning && report.positioning.length > 1 && (
+        <PositioningMap points={report.positioning} />
+      )}
+
+      {/* Huecos de mercado / gap analysis (#4) */}
+      {report.marketGaps && report.marketGaps.length > 0 && (
+        <section className="bg-surface p-8 rounded-card border border-line shadow-sm">
+          <h3 className="text-xl font-semibold text-text mb-6 flex items-center">
+            <svg className="w-6 h-6 mr-3 text-muted" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Huecos de Mercado
+          </h3>
+          <ul className="space-y-3">
+            {report.marketGaps.map((gap, idx) => (
+              <li key={idx} className="flex items-start text-text font-normal bg-surface-2 p-4 rounded-control border border-line">
+                <span className="mr-3 mt-1.5 w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0" />
+                {gap}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Estrategia: Audiencia y Comunicación */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
