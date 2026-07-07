@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Use placeholder for runtime injection in Docker
-    // Falls back to build-time env var for local development
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || '__RUNTIME_API_KEY__')
+    // Reemplazo en build para no depender de `process` en el navegador.
+    // Cadena vacía => la app cae al valor de localStorage en runtime.
+    'process.env.ANTHROPIC_API_KEY': JSON.stringify(process.env.ANTHROPIC_API_KEY || ''),
+    'process.env.ANTHROPIC_MODEL': JSON.stringify(process.env.ANTHROPIC_MODEL || '')
   },
   build: {
     outDir: 'dist',

@@ -4,7 +4,7 @@ import { FileData, BenchmarkResult } from './types';
 import FileUploader from './components/FileUploader';
 import BenchmarkReport from './components/BenchmarkReport';
 import ThemeToggle from './components/ThemeToggle';
-import { analyzeBenchmark } from './services/geminiService';
+import { analyzeBenchmark } from './services/researchService';
 
 const LOADING_STEPS = [
   "Iniciando rastreo de fuentes globales...",
