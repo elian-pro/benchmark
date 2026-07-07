@@ -97,3 +97,20 @@
     transparent var(--motif-line) var(--motif-gap)
   );
 }
+
+/* IMPRESIÓN / PDF (ZR-22): siempre en claro. Fuerza los tokens light aunque
+   la pantalla esté en dark, oculta el chrome (.no-print) y evita cortes feos. */
+@media print {
+  :root, :root[data-ds-theme="dark"] {
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-2: #F9FAFB;
+    --text: #0A0A0A; --text-muted: #525252; --accent: #0A0A0A;
+    --border: rgba(10,10,10,.15); --border-strong: rgba(10,10,10,.18);
+    color-scheme: light;
+  }
+  [data-ds-theme="dark"] .dark-invert { filter: none; }
+  .no-print { display: none !important; }
+  .zebra-motif { display: none !important; }
+  .break-inside-avoid { break-inside: avoid; }
+  body { background: #FFFFFF; }
+  @page { margin: 14mm; }
+}

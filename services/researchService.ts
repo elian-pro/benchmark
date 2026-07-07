@@ -7,6 +7,7 @@ import {
   Source,
   PositioningPoint,
   ProgressFn,
+  PreAnalysis,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -188,18 +189,83 @@ const runWithSearch = async (
 };
 
 // Llamada sin búsqueda con SALIDA ESTRUCTURADA garantizada (elimina fallos de formato).
-const runStructured = async (client: Anthropic, prompt: string, schema: any): Promise<any> => {
+const runStructured = async (client: Anthropic, content: any, schema: any): Promise<any> => {
   try {
     const resp = await client.messages.create({
       model: resolveModel(),
       max_tokens: 6000,
       output_config: { format: { type: "json_schema", schema } } as any,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
     });
     return extractJson(textOf(resp.content as any[]));
   } catch (error) {
     throw classifyError(error);
   }
+};
+
+const docBlocksOf = (files: FileData[]): any[] =>
+  files.map((file) => ({
+    type: "document",
+    source: { type: "base64", media_type: file.type, data: file.base64.split(",")[1] },
+  }));
+
+// ---------------------------------------------------------------------------
+// Pre-análisis: evalúa la calidad del input y genera preguntas para afinarlo.
+// ---------------------------------------------------------------------------
+
+const PREANALYSIS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    score: { type: "integer" },
+    verdict: { type: "string" },
+    missing: { type: "array", items: { type: "string" } },
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          id: { type: "string" },
+          question: { type: "string" },
+          hint: { type: "string" },
+        },
+        required: ["id", "question", "hint"],
+      },
+    },
+  },
+  required: ["score", "verdict", "missing", "questions"],
+};
+
+export const preAnalyze = async (text: string, files: FileData[]): Promise<PreAnalysis> => {
+  const client = new Anthropic({ apiKey: getApiKey(), dangerouslyAllowBrowser: true });
+
+  const prompt = `Evalúa la CALIDAD del siguiente input para una investigación de benchmarking
+competitivo. Un buen input define con claridad: (1) el producto o servicio, (2) la zona o mercado
+geográfico, (3) el rango de precio o modelo de negocio, y (4) qué diferencia al negocio.
+
+Da un score de 0 a 100 y un veredicto de una frase. Lista brevemente lo que falta. Genera entre 0 y
+5 preguntas CONCRETAS y accionables, SOLO sobre lo que falta o está vago, para mejorar el análisis.
+Si el input ya es sólido, usa score alto y pocas o cero preguntas. Cada pregunta lleva un id corto y
+un hint con un ejemplo de respuesta. TODO EN ESPAÑOL.
+
+CONTEXTO DEL NEGOCIO:
+${text || "(sin texto, revisa los PDFs adjuntos)"}`;
+
+  const content = [...docBlocksOf(files), { type: "text", text: prompt }];
+  const data = await runStructured(client, content, PREANALYSIS_SCHEMA);
+
+  const questions = Array.isArray(data?.questions) ? data.questions : [];
+  return {
+    score: clampScore(data?.score),
+    verdict: String(data?.verdict || ""),
+    missing: Array.isArray(data?.missing) ? data.missing.map(String) : [],
+    questions: questions.slice(0, 5).map((q: any, i: number) => ({
+      id: String(q?.id || `q${i}`),
+      question: String(q?.question || ""),
+      hint: String(q?.hint || ""),
+    })),
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -378,10 +444,7 @@ export const analyzeBenchmark = async (
   const client = new Anthropic({ apiKey: getApiKey(), dangerouslyAllowBrowser: true });
   const report = (msg: string) => onProgress?.(msg);
 
-  const docBlocks = files.map((file) => ({
-    type: "document",
-    source: { type: "base64", media_type: file.type, data: file.base64.split(",")[1] },
-  }));
+  const docBlocks = docBlocksOf(files);
 
   // Paso 1 · Identificar
   report("Identificando competidores reales del mercado...");

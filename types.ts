@@ -47,5 +47,19 @@ export interface FileData {
   type: string;
 }
 
+export interface PreAnalysisQuestion {
+  id: string;
+  question: string;
+  hint: string;
+}
+
+// Resultado del pre-análisis de calidad del input (antes de la investigación pesada).
+export interface PreAnalysis {
+  score: number;              // 0-100 calidad del input
+  verdict: string;            // valoración en una frase
+  missing: string[];          // qué falta para un mejor análisis
+  questions: PreAnalysisQuestion[]; // preguntas para afinar (0-5)
+}
+
 // Callback opcional para reportar el avance de cada etapa a la UI.
 export type ProgressFn = (message: string) => void;
