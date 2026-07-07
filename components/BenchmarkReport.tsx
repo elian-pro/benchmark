@@ -24,8 +24,22 @@ const ConfidenceBadge: React.FC<{ level?: Confidence; note?: string }> = ({ leve
 };
 
 const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
+  const printedOn = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
   return (
     <div className="space-y-8 animate-fade-in pb-20">
+      {/* Encabezado de marca — solo en el PDF (oculto en pantalla) */}
+      <header className="hidden print:flex items-end justify-between border-b border-line pb-4 mb-2">
+        <div className="flex items-center gap-3">
+          <img src="/assets/logo-zebra.svg" alt="Zebra" className="h-5 w-auto" />
+          <div className="pl-3 border-l border-line">
+            <p className="text-sm font-semibold text-text leading-tight">Benchmarking Competitivo</p>
+            <p className="text-[9px] text-muted font-medium uppercase tracking-[0.2em] font-mono">Intelligence Platform</p>
+          </div>
+        </div>
+        <p className="text-[9px] text-muted font-medium uppercase tracking-[0.2em] font-mono">{printedOn}</p>
+      </header>
+
       {/* Barra de acciones (no se imprime) */}
       <div className="no-print flex items-center justify-between gap-4">
         <p className="text-[10px] font-medium text-muted uppercase tracking-[0.3em] font-mono">Reporte de Inteligencia</p>
@@ -247,6 +261,14 @@ const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
           </div>
         </section>
       )}
+
+      {/* Pie de marca — solo en el PDF (ZR-13) */}
+      <footer className="hidden print:flex items-center justify-between border-t border-line pt-4 mt-4">
+        <img src="/assets/logo-zebra.svg" alt="Zebra" className="h-4 w-auto" />
+        <p className="text-[9px] text-muted font-medium uppercase tracking-[0.2em] font-mono">
+          Generado por Zebra Benchmarking · {printedOn}
+        </p>
+      </footer>
     </div>
   );
 };
