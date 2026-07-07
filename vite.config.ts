@@ -5,8 +5,9 @@ export default defineConfig({
   plugins: [react()],
   define: {
     // Reemplazo en build para no depender de `process` en el navegador.
-    // Cadena vacía => la app cae al valor de localStorage en runtime.
-    'process.env.ANTHROPIC_API_KEY': JSON.stringify(process.env.ANTHROPIC_API_KEY || ''),
+    // Si no hay key en build, se deja un placeholder que el docker-entrypoint
+    // sustituye en runtime con la variable de entorno del contenedor.
+    'process.env.ANTHROPIC_API_KEY': JSON.stringify(process.env.ANTHROPIC_API_KEY || '__RUNTIME_ANTHROPIC_API_KEY__'),
     'process.env.ANTHROPIC_MODEL': JSON.stringify(process.env.ANTHROPIC_MODEL || '')
   },
   build: {

@@ -14,8 +14,13 @@ import {
 // ---------------------------------------------------------------------------
 
 const getApiKey = (): string => {
+  // El build deja un placeholder que el docker-entrypoint sustituye en runtime.
+  // Si sigue sin sustituir (sin env), lo ignoramos y caemos a localStorage.
+  const fromEnv = process.env.ANTHROPIC_API_KEY;
+  const envKey = fromEnv && !fromEnv.includes("__RUNTIME") ? fromEnv : null;
+
   const apiKey =
-    process.env.ANTHROPIC_API_KEY ||
+    envKey ||
     (typeof window !== "undefined" ? localStorage.getItem("ANTHROPIC_API_KEY") : null);
 
   if (!apiKey) {

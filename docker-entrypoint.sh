@@ -9,18 +9,18 @@ echo "🔧 Injecting runtime environment variables..."
 # Find all JS files in dist
 JS_FILES=$(find /usr/share/nginx/html -type f -name "*.js")
 
-# Support both API_KEY and GEMINI_API_KEY (fallback)
-RUNTIME_API_KEY="${API_KEY:-${GEMINI_API_KEY:-}}"
+# Clave de Claude (Anthropic). Acepta ANTHROPIC_API_KEY o API_KEY como respaldo.
+RUNTIME_ANTHROPIC_KEY="${ANTHROPIC_API_KEY:-${API_KEY:-}}"
 
-if [ -z "$RUNTIME_API_KEY" ]; then
-  echo "⚠️  No API_KEY or GEMINI_API_KEY found in environment"
+if [ -z "$RUNTIME_ANTHROPIC_KEY" ]; then
+  echo "⚠️  No ANTHROPIC_API_KEY found in environment"
   echo "   API key will need to be configured via localStorage"
 else
-  echo "✅ Found API key, injecting into application..."
+  echo "✅ Found Anthropic API key, injecting into application..."
 
   # Replace placeholder with actual API key in all JS files
   for file in $JS_FILES; do
-    sed -i "s|__RUNTIME_API_KEY__|${RUNTIME_API_KEY}|g" "$file"
+    sed -i "s|__RUNTIME_ANTHROPIC_API_KEY__|${RUNTIME_ANTHROPIC_KEY}|g" "$file"
   done
 
   echo "✅ Environment variables injected successfully"
