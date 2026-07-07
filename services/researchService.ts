@@ -34,11 +34,24 @@ const getApiKey = (): string => {
   return apiKey;
 };
 
-// Opus 4.8 = máxima capacidad. Cambia a 'claude-sonnet-5' para abaratar.
+// Sonnet 5 = calidad casi-Opus a menos de la mitad del costo (por defecto, para
+// controlar el gasto). Pon 'claude-opus-4-8' para máxima capacidad, o
+// 'claude-haiku-4-5' NO sirve aquí (la búsqueda web no lo soporta).
 const resolveModel = (): string =>
   process.env.ANTHROPIC_MODEL ||
   (typeof window !== "undefined" ? localStorage.getItem("ANTHROPIC_MODEL") : null) ||
-  "claude-opus-4-8";
+  "claude-sonnet-5";
+
+// Nº de competidores a investigar a fondo. Menos = más barato. Config vía
+// localStorage.setItem("ANTHROPIC_MAX_COMPETITORS", "3"). Rango 2-8, defecto 4.
+const maxCompetitors = (): number => {
+  const raw = typeof window !== "undefined" ? localStorage.getItem("ANTHROPIC_MAX_COMPETITORS") : null;
+  const n = Number(raw);
+  return isFinite(n) && n >= 2 && n <= 8 ? Math.floor(n) : 4;
+};
+
+// Tope de búsquedas web por llamada (acota el costo de cada paso con búsqueda).
+const MAX_SEARCH_USES = 4;
 
 const SECTOR_HINT = `Prioriza FUENTES PRIMARIAS y del sector: sitios oficiales de cada
 competidor, portales y directorios especializados. Si el producto es inmobiliario, apóyate
@@ -168,11 +181,11 @@ const runWithSearch = async (
   const messages: any[] = [{ role: "user", content: userContent }];
   const sources: Source[] = [];
   try {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const resp = await client.messages.create({
         model: resolveModel(),
-        max_tokens: 6000,
-        tools: [{ type: "web_search_20260209", name: "web_search" } as any],
+        max_tokens: 4000,
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCH_USES } as any],
         messages,
       });
       sources.push(...sourcesFrom(resp.content as any[]));
@@ -277,9 +290,10 @@ const identifyCompetitors = async (
   text: string,
   docBlocks: any[]
 ): Promise<Array<{ name: string; url: string; location: string }>> => {
-  const prompt = `Eres un analista de Inteligencia Competitiva. Usando búsqueda web, identifica
-entre 5 y 7 competidores o referentes REALES y verificables para el siguiente negocio. No inventes:
-si no estás seguro de que un competidor existe, no lo incluyas. ${SECTOR_HINT}
+  const n = maxCompetitors();
+  const prompt = `Eres un analista de Inteligencia Competitiva. Usando búsqueda web, identifica los
+${n} competidores o referentes MÁS relevantes, REALES y verificables para el siguiente negocio.
+No inventes: si no estás seguro de que un competidor existe, no lo incluyas. ${SECTOR_HINT}
 
 CONTEXTO DEL NEGOCIO:
 ${text}
@@ -292,7 +306,7 @@ Responde SOLO con JSON puro (sin texto adicional):
   const list = Array.isArray(data?.competitors) ? data.competitors : [];
   return list
     .filter((c: any) => c?.name)
-    .slice(0, 6)
+    .slice(0, n)
     .map((c: any) => ({ name: String(c.name), url: String(c.url || ""), location: String(c.location || "") }));
 };
 
@@ -329,6 +343,27 @@ Responde SOLO con JSON puro:
   };
 };
 
+const VERIFY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    verifications: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          confidence: { type: "string" },
+          note: { type: "string" },
+        },
+        required: ["name", "confidence", "note"],
+      },
+    },
+  },
+  required: ["verifications"],
+};
+
 const verifyCompetitors = async (
   client: Anthropic,
   context: string,
@@ -337,20 +372,25 @@ const verifyCompetitors = async (
   const summary = competitors
     .map((c, i) => `${i + 1}. ${c.name} — ${c.location} — ${c.pricing} — ${c.url || "sin URL"}`)
     .join("\n");
-  const prompt = `Actúa como verificador ESCÉPTICO. Para cada competidor de la lista, evalúa con
-búsqueda web si es real y si sus datos (precio, ubicación, oferta) son verosímiles y están
-respaldados. Sé estricto: si algo huele a inventado o no encuentras evidencia, baja la confianza.
+  const withSources = competitors
+    .map((c, i) => `${i + 1}. ${c.name} — fuentes: ${(c.sources || []).map((s) => s.url).join(", ") || "ninguna"}`)
+    .join("\n");
+  const prompt = `Actúa como verificador ESCÉPTICO. Revisa cada competidor de la lista y evalúa, con
+base en la coherencia de sus datos (precio, ubicación, oferta) y en si tiene fuentes que lo
+respalden, qué tan confiable es. Sé estricto: si no tiene fuentes o los datos son vagos o
+sospechosos, baja la confianza. No busques en internet; razona sobre lo ya recopilado.
 
 NEGOCIO: ${context}
 
-LISTA:
+DATOS:
 ${summary}
 
-Responde SOLO con JSON puro:
-{"verifications":[{"name":"Nombre exacto de la lista","confidence":"alta|media|baja","note":"1 frase"}]}`;
+RESPALDO POR FUENTES:
+${withSources}
 
-  const { text: out } = await runWithSearch(client, [{ type: "text", text: prompt }]);
-  const data = extractJson(out);
+Devuelve, para cada competidor, name (exacto de la lista), confidence (alta|media|baja) y note (1 frase).`;
+
+  const data = await runStructured(client, prompt, VERIFY_SCHEMA);
   const verifications: any[] = Array.isArray(data?.verifications) ? data.verifications : [];
   const byName = new Map(verifications.map((v) => [String(v?.name || "").toLowerCase(), v]));
 
