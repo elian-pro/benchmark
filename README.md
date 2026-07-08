@@ -2,11 +2,13 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Zebra Benchmarking
 
-This contains everything you need to run your app locally.
+Plataforma de inteligencia competitiva impulsada por **Claude**: investiga a tu competencia en
+internet y genera una estrategia lista para descargar como PDF.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1doHzP3Udu7aB_Jri2_ihSwtJhtDXUlna
+📐 **¿Cómo funciona?** Lee [ARCHITECTURE.md](ARCHITECTURE.md) — incluye el paso a paso en lenguaje
+natural y el detalle del framework de investigación.
 
 ## Run Locally
 
@@ -19,9 +21,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1doHzP3Udu7aB_Jri2_ihSw
    npm install
    ```
 
-2. Set the `API_KEY` in [.env.local](.env.local) to your Gemini API key:
+2. Define tu clave de Claude (Anthropic) en el entorno:
    ```env
-   API_KEY=tu_clave_de_gemini
+   ANTHROPIC_API_KEY=tu_clave_de_claude
    ```
 
 3. Run the app:
@@ -49,12 +51,12 @@ Si `npm install` falla por restricciones de red, usa el servidor HTTP simple:
 
 3. En la consola del navegador, configura tu API key:
    ```javascript
-   localStorage.setItem('GEMINI_API_KEY', 'tu_clave_de_gemini_aqui')
+   localStorage.setItem('ANTHROPIC_API_KEY', 'tu_clave_de_claude_aqui')
    ```
 
 4. Recarga la página
 
-**Obtén tu API key:** https://ai.google.dev/gemini-api/docs/api-key
+**Obtén tu API key:** https://console.anthropic.com
 
 ## Deploy with Docker
 
@@ -68,7 +70,7 @@ docker build -t zebra-benchmarking .
 
 # Run with API key (recommended)
 docker run -d -p 80:80 \
-  -e API_KEY=your_gemini_api_key_here \
+  -e ANTHROPIC_API_KEY=your_claude_api_key_here \
   --name zebra-benchmarking \
   zebra-benchmarking
 ```
@@ -77,13 +79,13 @@ The application will automatically use the API key from the environment variable
 
 ### Alternative: Configure API Key via Browser
 
-If you run without the `-e API_KEY` flag:
+If you run without the `-e ANTHROPIC_API_KEY` flag:
 
 1. Open http://localhost in your browser
 2. Open browser console (F12)
 3. Set your API key:
    ```javascript
-   localStorage.setItem('GEMINI_API_KEY', 'your_api_key_here')
+   localStorage.setItem('ANTHROPIC_API_KEY', 'your_api_key_here')
    ```
 4. Reload the page
 
