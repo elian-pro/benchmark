@@ -26,6 +26,16 @@ else
   echo "✅ Environment variables injected successfully"
 fi
 
+# Client ID de Google para el login restringido por dominio (público, no secreto).
+if [ -n "$GOOGLE_CLIENT_ID" ]; then
+  echo "✅ Found GOOGLE_CLIENT_ID, injecting..."
+  for file in $JS_FILES; do
+    sed -i "s|__RUNTIME_GOOGLE_CLIENT_ID__|${GOOGLE_CLIENT_ID}|g" "$file"
+  done
+else
+  echo "⚠️  No GOOGLE_CLIENT_ID found — login screen will ask to configure it"
+fi
+
 echo "🚀 Starting nginx..."
 
 # Start nginx
