@@ -54,6 +54,10 @@ const maxCompetitors = (): number => {
 const PRICING_HINT = `Los precios se asumen en pesos mexicanos (MXN) salvo que la fuente indique
 explícitamente otra moneda; exprésalos siempre en MXN e indica la cifra cuando exista.`;
 
+// Contexto temporal: se fija al lanzar la investigación para que el modelo
+// use el año correcto y no asuma el año de su entrenamiento.
+let currentDateNote = "";
+
 // Tope de búsquedas web por llamada (acota el costo de cada paso con búsqueda).
 const MAX_SEARCH_USES = 4;
 
@@ -299,7 +303,7 @@ const identifyCompetitors = async (
 ${n} competidores o referentes MÁS relevantes para el siguiente negocio. Incluye tanto competidores
 DIRECTOS como MEDIANAMENTE DIRECTOS: variantes ligeras del mismo producto, sustitutos cercanos y
 alternativas del mismo mercado o segmento. Prefiere incluir de más que de menos; basta con que sean
-plausibles y encontrables. Solo descarta lo que sea claramente inventado. ${SECTOR_HINT} ${PRICING_HINT}
+plausibles y encontrables. Solo descarta lo que sea claramente inventado. ${currentDateNote} ${SECTOR_HINT} ${PRICING_HINT}
 
 CONTEXTO DEL NEGOCIO:
 ${text}
@@ -322,7 +326,7 @@ const researchCompetitor = async (
   base: { name: string; url: string; location: string }
 ): Promise<Competitor> => {
   const prompt = `Investiga A FONDO al competidor "${base.name}" (${base.location}) usando búsqueda web.
-Es competidor (directo o medianamente directo) del negocio descrito abajo. ${SECTOR_HINT} ${PRICING_HINT}
+Es competidor (directo o medianamente directo) del negocio descrito abajo. ${currentDateNote} ${SECTOR_HINT} ${PRICING_HINT}
 
 CONTEXTO DEL NEGOCIO:
 ${context}
@@ -469,7 +473,8 @@ const synthesize = async (
     .join("\n");
 
   const prompt = `Eres Director de Estrategia. Con base en el dossier de competidores ya investigado,
-redacta la estrategia para el negocio. TODO EN ESPAÑOL. No inventes nuevos competidores. ${PRICING_HINT}
+redacta la estrategia para el negocio. TODO EN ESPAÑOL. No inventes nuevos competidores.
+${currentDateNote} ${PRICING_HINT}
 
 NEGOCIO:
 ${text}
@@ -507,6 +512,15 @@ export const analyzeBenchmark = async (
 ): Promise<BenchmarkResult> => {
   const client = new Anthropic({ apiKey: getApiKey(), dangerouslyAllowBrowser: true });
   const report = (msg: string) => onProgress?.(msg);
+
+  // Fecha fijada al momento de lanzar la investigación (para prompts y sello).
+  const now = new Date();
+  const generatedAt = now.toISOString();
+  currentDateNote = `Contexto temporal: hoy es ${now.toLocaleDateString("es-MX", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })} y estamos en el año ${now.getFullYear()}. Usa ${now.getFullYear()} como referencia temporal (precios, disponibilidad, "actualmente"); NO asumas años anteriores.`;
 
   const docBlocks = docBlocksOf(files);
 
@@ -562,6 +576,6 @@ export const analyzeBenchmark = async (
     marketGaps: synth.marketGaps,
     positioning,
     sources: allSources,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
   };
 };
