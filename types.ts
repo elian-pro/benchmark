@@ -39,6 +39,7 @@ export interface BenchmarkResult {
   marketGaps: string[];              // huecos de mercado detectados (gap analysis)
   positioning: PositioningPoint[];   // puntos del mapa precio vs valor
   sources: Source[];                 // todas las fuentes consultadas (deduplicadas)
+  generatedAt: string;               // ISO de cuándo se realizó la investigación
 }
 
 export interface FileData {

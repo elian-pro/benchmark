@@ -43,12 +43,16 @@ const resolveModel = (): string =>
   "claude-sonnet-5";
 
 // Nº de competidores a investigar a fondo. Menos = más barato. Config vía
-// localStorage.setItem("ANTHROPIC_MAX_COMPETITORS", "3"). Rango 2-8, defecto 4.
+// localStorage.setItem("ANTHROPIC_MAX_COMPETITORS", "3"). Rango 2-8, defecto 5.
 const maxCompetitors = (): number => {
   const raw = typeof window !== "undefined" ? localStorage.getItem("ANTHROPIC_MAX_COMPETITORS") : null;
   const n = Number(raw);
-  return isFinite(n) && n >= 2 && n <= 8 ? Math.floor(n) : 4;
+  return isFinite(n) && n >= 2 && n <= 8 ? Math.floor(n) : 5;
 };
+
+// Moneda por defecto: pesos mexicanos, salvo que la fuente indique otra.
+const PRICING_HINT = `Los precios se asumen en pesos mexicanos (MXN) salvo que la fuente indique
+explícitamente otra moneda; exprésalos siempre en MXN e indica la cifra cuando exista.`;
 
 // Tope de búsquedas web por llamada (acota el costo de cada paso con búsqueda).
 const MAX_SEARCH_USES = 4;
@@ -292,8 +296,10 @@ const identifyCompetitors = async (
 ): Promise<Array<{ name: string; url: string; location: string }>> => {
   const n = maxCompetitors();
   const prompt = `Eres un analista de Inteligencia Competitiva. Usando búsqueda web, identifica los
-${n} competidores o referentes MÁS relevantes, REALES y verificables para el siguiente negocio.
-No inventes: si no estás seguro de que un competidor existe, no lo incluyas. ${SECTOR_HINT}
+${n} competidores o referentes MÁS relevantes para el siguiente negocio. Incluye tanto competidores
+DIRECTOS como MEDIANAMENTE DIRECTOS: variantes ligeras del mismo producto, sustitutos cercanos y
+alternativas del mismo mercado o segmento. Prefiere incluir de más que de menos; basta con que sean
+plausibles y encontrables. Solo descarta lo que sea claramente inventado. ${SECTOR_HINT} ${PRICING_HINT}
 
 CONTEXTO DEL NEGOCIO:
 ${text}
@@ -316,31 +322,49 @@ const researchCompetitor = async (
   base: { name: string; url: string; location: string }
 ): Promise<Competitor> => {
   const prompt = `Investiga A FONDO al competidor "${base.name}" (${base.location}) usando búsqueda web.
-Es competidor del negocio descrito abajo. ${SECTOR_HINT}
+Es competidor (directo o medianamente directo) del negocio descrito abajo. ${SECTOR_HINT} ${PRICING_HINT}
 
 CONTEXTO DEL NEGOCIO:
 ${context}
 
 Responde SOLO con JSON puro:
 {"name":"${base.name}","url":"URL confirmada o '${base.url}'","location":"Ubicación exacta",
-"pricing":"Precios o modelo con cifras si las hay","advantages":["Ventaja 1","Ventaja 2","Ventaja 3"],
+"pricing":"Precios en MXN o modelo, con cifras si las hay","advantages":["Ventaja 1","Ventaja 2","Ventaja 3"],
 "differentiator":"Su gancho principal","priceScore":0-100,"valueScore":0-100,
 "selfConfidence":"alta|media|baja"}`;
 
-  const { text: out, sources } = await runWithSearch(client, [{ type: "text", text: prompt }]);
-  const data = extractJson(out);
-  return {
-    name: String(data?.name || base.name),
-    url: String(data?.url || base.url || ""),
-    location: String(data?.location || base.location || ""),
-    pricing: String(data?.pricing || "No disponible"),
-    advantages: Array.isArray(data?.advantages) ? data.advantages.map(String) : [],
-    differentiator: String(data?.differentiator || ""),
-    priceScore: clampScore(data?.priceScore),
-    valueScore: clampScore(data?.valueScore),
-    confidence: ["alta", "media", "baja"].includes(data?.selfConfidence) ? data.selfConfidence : "media",
-    sources: dedupeSources(sources),
-  };
+  try {
+    const { text: out, sources } = await runWithSearch(client, [{ type: "text", text: prompt }]);
+    const data = extractJson(out);
+    return {
+      name: String(data?.name || base.name),
+      url: String(data?.url || base.url || ""),
+      location: String(data?.location || base.location || ""),
+      pricing: String(data?.pricing || "No disponible"),
+      advantages: Array.isArray(data?.advantages) ? data.advantages.map(String) : [],
+      differentiator: String(data?.differentiator || ""),
+      priceScore: clampScore(data?.priceScore),
+      valueScore: clampScore(data?.valueScore),
+      confidence: ["alta", "media", "baja"].includes(data?.selfConfidence) ? data.selfConfidence : "media",
+      sources: dedupeSources(sources),
+    };
+  } catch (e) {
+    // No descartamos al competidor: lo dejamos con sus datos base y confianza baja.
+    console.warn(`No se pudo profundizar en "${base.name}":`, e);
+    return {
+      name: base.name,
+      url: base.url || "",
+      location: base.location || "",
+      pricing: "No disponible",
+      advantages: [],
+      differentiator: "",
+      priceScore: 50,
+      valueScore: 50,
+      confidence: "baja",
+      verificationNote: "No se pudo profundizar en esta fuente.",
+      sources: [],
+    };
+  }
 };
 
 const VERIFY_SCHEMA = {
@@ -445,7 +469,7 @@ const synthesize = async (
     .join("\n");
 
   const prompt = `Eres Director de Estrategia. Con base en el dossier de competidores ya investigado,
-redacta la estrategia para el negocio. TODO EN ESPAÑOL. No inventes nuevos competidores.
+redacta la estrategia para el negocio. TODO EN ESPAÑOL. No inventes nuevos competidores. ${PRICING_HINT}
 
 NEGOCIO:
 ${text}
@@ -538,5 +562,6 @@ export const analyzeBenchmark = async (
     marketGaps: synth.marketGaps,
     positioning,
     sources: allSources,
+    generatedAt: new Date().toISOString(),
   };
 };

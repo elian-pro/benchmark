@@ -24,7 +24,11 @@ const ConfidenceBadge: React.FC<{ level?: Confidence; note?: string }> = ({ leve
 };
 
 const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
-  const printedOn = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+  const printedOn = new Date(report.generatedAt || Date.now()).toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <div className="space-y-8 animate-fade-in pb-20">
@@ -42,7 +46,10 @@ const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
 
       {/* Barra de acciones (no se imprime) */}
       <div className="no-print flex items-center justify-between gap-4">
-        <p className="text-[10px] font-medium text-muted uppercase tracking-[0.3em] font-mono">Reporte de Inteligencia</p>
+        <div>
+          <p className="text-[10px] font-medium text-muted uppercase tracking-[0.3em] font-mono">Reporte de Inteligencia</p>
+          <p className="text-[10px] text-muted font-normal font-mono mt-0.5">Investigación del {printedOn}</p>
+        </div>
         <button
           onClick={() => window.print()}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-btn border border-line text-[10px] font-medium text-text hover:bg-surface-2 hover:border-accent transition-all uppercase tracking-widest font-mono"
