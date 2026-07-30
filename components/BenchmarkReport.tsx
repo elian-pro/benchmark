@@ -45,20 +45,33 @@ const BenchmarkReport: React.FC<BenchmarkReportProps> = ({ report }) => {
       </header>
 
       {/* Barra de acciones (no se imprime) */}
-      <div className="no-print flex items-center justify-between gap-4">
+      <div className="no-print flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[10px] font-medium text-muted uppercase tracking-[0.3em] font-mono">Reporte de Inteligencia</p>
           <p className="text-[10px] text-muted font-normal font-mono mt-0.5">Investigación del {printedOn}</p>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-btn border border-line text-[10px] font-medium text-text hover:bg-surface-2 hover:border-accent transition-all uppercase tracking-widest font-mono"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
-          </svg>
-          Descargar PDF
-        </button>
+        <div className="flex items-center gap-2">
+          {report.cost && (
+            <div
+              title={`Entrada: ${report.cost.inputTokens.toLocaleString('es-MX')} tok · Salida: ${report.cost.outputTokens.toLocaleString('es-MX')} tok · ${report.cost.webSearches} búsquedas · Modelo: ${report.cost.model}`}
+              className="inline-flex flex-col items-end px-3 py-1.5 rounded-btn border border-line bg-surface-2"
+            >
+              <span className="text-[11px] font-semibold text-text font-mono leading-none">${report.cost.usd.toFixed(4)} USD</span>
+              <span className="text-[8px] text-muted font-mono uppercase tracking-wider mt-0.5">
+                {(report.cost.inputTokens + report.cost.outputTokens).toLocaleString('es-MX')} tok · {report.cost.webSearches} búsq.
+              </span>
+            </div>
+          )}
+          <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-btn border border-line text-[10px] font-medium text-text hover:bg-surface-2 hover:border-accent transition-all uppercase tracking-widest font-mono"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" />
+            </svg>
+            Descargar PDF
+          </button>
+        </div>
       </div>
 
       {/* Resumen Ejecutivo */}

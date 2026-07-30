@@ -6,7 +6,9 @@ import BenchmarkReport from './components/BenchmarkReport';
 import ThemeToggle from './components/ThemeToggle';
 import LoadingScreen from './components/LoadingScreen';
 import PreAnalysisPanel from './components/PreAnalysisPanel';
+import HistoryPanel from './components/HistoryPanel';
 import { analyzeBenchmark, preAnalyze } from './services/researchService';
+import { saveBenchmark } from './services/storage';
 
 const LOADING_STEPS = [
   "Consultando fuentes globales...",
@@ -18,7 +20,7 @@ const LOADING_STEPS = [
   "Finalizando el reporte de inteligencia...",
 ];
 
-type Stage = 'input' | 'refine' | 'loading' | 'report';
+type Stage = 'input' | 'refine' | 'loading' | 'report' | 'history';
 
 const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -80,8 +82,10 @@ const App: React.FC = () => {
     setReport(null);
     setLiveStatus(null);
     try {
-      const result = await analyzeBenchmark(buildContext(), files, setLiveStatus);
+      const ctx = buildContext();
+      const result = await analyzeBenchmark(ctx, files, setLiveStatus);
       setReport(result);
+      try { saveBenchmark(ctx, result); } catch { /* almacenamiento no disponible */ }
       setStage('report');
     } catch (err: any) {
       setError(err.message || 'Error al investigar el mercado.');
@@ -116,8 +120,14 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <button
+              onClick={() => setStage('history')}
+              className="px-4 py-2 text-[10px] font-medium text-muted hover:text-text hover:bg-surface-2 rounded-btn transition-all border border-transparent uppercase tracking-widest font-mono"
+            >
+              Historial
+            </button>
+            <button
               onClick={handleReset}
-              className="px-5 py-2 text-[10px] font-medium text-muted hover:text-text hover:bg-surface-2 rounded-btn transition-all border border-transparent uppercase tracking-widest font-mono"
+              className="px-4 py-2 text-[10px] font-medium text-muted hover:text-text hover:bg-surface-2 rounded-btn transition-all border border-transparent uppercase tracking-widest font-mono"
             >
               Nuevo Análisis
             </button>
@@ -126,7 +136,15 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 mt-12">
-        {stage === 'report' && report ? (
+        {stage === 'history' ? (
+          <HistoryPanel
+            onOpen={(rec) => {
+              setReport(rec.result);
+              setStage('report');
+            }}
+            onClose={() => setStage(report ? 'report' : 'input')}
+          />
+        ) : stage === 'report' && report ? (
           <BenchmarkReport report={report} />
         ) : stage === 'loading' ? (
           <LoadingScreen status={liveStatus} fallback={LOADING_STEPS[loadingStep]} />

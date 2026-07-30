@@ -58,6 +58,65 @@ explícitamente otra moneda; exprésalos siempre en MXN e indica la cifra cuando
 // use el año correcto y no asuma el año de su entrenamiento.
 let currentDateNote = "";
 
+// ---------------------------------------------------------------------------
+// Contabilidad de tokens / costo
+// ---------------------------------------------------------------------------
+
+// Precios por millón de tokens (USD). Ajusta si cambian las tarifas de Anthropic.
+const PRICING: Record<string, { in: number; out: number }> = {
+  "claude-opus-4-8": { in: 5, out: 25 },
+  "claude-opus-4-7": { in: 5, out: 25 },
+  "claude-sonnet-5": { in: 3, out: 15 },
+  "claude-sonnet-4-6": { in: 3, out: 15 },
+  "claude-haiku-4-5": { in: 1, out: 5 },
+};
+const WEB_SEARCH_USD = 0.01; // ~$10 por 1000 búsquedas web
+
+interface RunUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  webSearches: number;
+}
+const zeroUsage = (): RunUsage => ({
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  webSearches: 0,
+});
+let runUsage: RunUsage = zeroUsage();
+
+const addUsage = (u: any): void => {
+  if (!u) return;
+  runUsage.inputTokens += u.input_tokens || 0;
+  runUsage.outputTokens += u.output_tokens || 0;
+  runUsage.cacheReadTokens += u.cache_read_input_tokens || 0;
+  runUsage.cacheWriteTokens += u.cache_creation_input_tokens || 0;
+  const ws = u.server_tool_use?.web_search_requests;
+  if (ws) runUsage.webSearches += ws;
+};
+
+const computeCost = (u: RunUsage, model: string) => {
+  const p = PRICING[model] || PRICING["claude-sonnet-5"];
+  const usd =
+    (u.inputTokens / 1e6) * p.in +
+    (u.outputTokens / 1e6) * p.out +
+    (u.cacheReadTokens / 1e6) * p.in * 0.1 +
+    (u.cacheWriteTokens / 1e6) * p.in * 1.25 +
+    u.webSearches * WEB_SEARCH_USD;
+  return {
+    model,
+    inputTokens: u.inputTokens,
+    outputTokens: u.outputTokens,
+    cacheReadTokens: u.cacheReadTokens,
+    cacheWriteTokens: u.cacheWriteTokens,
+    webSearches: u.webSearches,
+    usd: Math.round(usd * 10000) / 10000,
+  };
+};
+
 // Tope de búsquedas web por llamada (acota el costo de cada paso con búsqueda).
 const MAX_SEARCH_USES = 4;
 
@@ -196,6 +255,7 @@ const runWithSearch = async (
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCH_USES } as any],
         messages,
       });
+      addUsage((resp as any).usage);
       sources.push(...sourcesFrom(resp.content as any[]));
       if (resp.stop_reason === "pause_turn") {
         messages.push({ role: "assistant", content: resp.content });
@@ -218,6 +278,7 @@ const runStructured = async (client: Anthropic, content: any, schema: any): Prom
       output_config: { format: { type: "json_schema", schema } } as any,
       messages: [{ role: "user", content }],
     });
+    addUsage((resp as any).usage);
     return extractJson(textOf(resp.content as any[]));
   } catch (error) {
     throw classifyError(error);
@@ -259,6 +320,8 @@ const PREANALYSIS_SCHEMA = {
 };
 
 export const preAnalyze = async (text: string, files: FileData[]): Promise<PreAnalysis> => {
+  // Inicia la contabilidad de la corrida; el costo del pre-análisis cuenta.
+  runUsage = zeroUsage();
   const client = new Anthropic({ apiKey: getApiKey(), dangerouslyAllowBrowser: true });
 
   const prompt = `Evalúa la CALIDAD del siguiente input para una investigación de benchmarking
@@ -577,5 +640,6 @@ export const analyzeBenchmark = async (
     positioning,
     sources: allSources,
     generatedAt,
+    cost: computeCost(runUsage, resolveModel()),
   };
 };

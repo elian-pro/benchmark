@@ -28,6 +28,17 @@ export interface PositioningPoint {
   isUser?: boolean;    // true para el producto del usuario
 }
 
+// Desglose de consumo y costo estimado de una corrida.
+export interface CostBreakdown {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  webSearches: number;
+  usd: number;                       // costo total estimado en USD
+}
+
 export interface BenchmarkResult {
   summary: string;
   analysis: string;
@@ -40,6 +51,7 @@ export interface BenchmarkResult {
   positioning: PositioningPoint[];   // puntos del mapa precio vs valor
   sources: Source[];                 // todas las fuentes consultadas (deduplicadas)
   generatedAt: string;               // ISO de cuándo se realizó la investigación
+  cost: CostBreakdown;               // tokens consumidos y costo estimado en USD
 }
 
 export interface FileData {
