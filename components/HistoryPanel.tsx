@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { StoredBenchmark, listBenchmarks, deleteBenchmark, totalSpent } from '../services/storage';
+import { StoredBenchmark, listBenchmarks, deleteBenchmark } from '../services/storage';
+import { downloadBenchmarkHtml, downloadBenchmarkJson } from '../services/exportBenchmark';
 
 interface HistoryPanelProps {
   onOpen: (record: StoredBenchmark) => void;
@@ -58,12 +59,26 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ onOpen, onClose }) => {
                   {fmtNum((b.result?.cost?.inputTokens || 0) + (b.result?.cost?.outputTokens || 0))} tok
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => onOpen(b)}
                   className="px-3 py-1.5 rounded-btn bg-accent text-bg text-[10px] font-medium uppercase tracking-widest font-mono hover:-translate-y-0.5 transition-all"
                 >
                   Abrir
+                </button>
+                <button
+                  onClick={() => downloadBenchmarkHtml(b)}
+                  title="Descargar reporte HTML (imprimible a PDF)"
+                  className="px-2.5 py-1.5 rounded-btn border border-line text-[10px] font-medium text-muted hover:text-text hover:border-accent transition-all uppercase tracking-wider font-mono"
+                >
+                  HTML
+                </button>
+                <button
+                  onClick={() => downloadBenchmarkJson(b)}
+                  title="Descargar datos en JSON"
+                  className="px-2.5 py-1.5 rounded-btn border border-line text-[10px] font-medium text-muted hover:text-text hover:border-accent transition-all uppercase tracking-wider font-mono"
+                >
+                  JSON
                 </button>
                 <button
                   onClick={() => handleDelete(b.id)}
