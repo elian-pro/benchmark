@@ -180,6 +180,18 @@ const classifyError = (error: any): Error => {
   if (status === 403 || raw.includes("permission")) {
     return userError("La API Key de Claude no tiene permisos para esta operación o este modelo.");
   }
+  if (
+    status === 413 ||
+    raw.includes("request too large") ||
+    raw.includes("request_too_large") ||
+    raw.includes("too large") ||
+    raw.includes("payload")
+  ) {
+    return userError(
+      "Los documentos PDF son demasiado pesados para procesarlos juntos. " +
+        "Sube menos archivos o versiones más ligeras (o quita presentaciones/brochures muy grandes) e inténtalo de nuevo."
+    );
+  }
   if (status === 404 || raw.includes("not found") || raw.includes("model")) {
     return userError(
       `El modelo "${resolveModel()}" no está disponible para tu cuenta. ` +
@@ -196,7 +208,10 @@ const classifyError = (error: any): Error => {
     return userError("El servicio de Claude tuvo un problema temporal. Vuelve a intentarlo en unos momentos.");
   }
   if (raw.includes("failed to fetch") || raw.includes("network") || raw.includes("timeout") || raw.includes("connection")) {
-    return userError("No pudimos conectar con Claude. Revisa tu conexión a internet e inténtalo de nuevo.");
+    return userError(
+      "No pudimos conectar con Claude. Revisa tu conexión a internet. Si adjuntaste varios PDFs " +
+        "pesados, prueba con menos archivos: una petición muy grande también puede fallar así."
+    );
   }
   return userError("Ocurrió un error al generar la investigación" + (error?.message ? `: ${error.message}` : ". Inténtalo de nuevo."));
 };
@@ -285,11 +300,25 @@ const runStructured = async (client: Anthropic, content: any, schema: any): Prom
   }
 };
 
-const docBlocksOf = (files: FileData[]): any[] =>
-  files.map((file) => ({
-    type: "document",
-    source: { type: "base64", media_type: file.type, data: file.base64.split(",")[1] },
-  }));
+// Presupuesto de PDFs para no exceder el límite de la API (~32MB por petición).
+// ~18M chars base64 ≈ ~13MB reales; deja margen para prompts y respuesta.
+const BASE64_BUDGET = 18_000_000;
+
+const budgetedDocBlocks = (files: FileData[]): { blocks: any[]; skipped: number } => {
+  const blocks: any[] = [];
+  let used = 0;
+  let skipped = 0;
+  for (const file of files) {
+    const data = file.base64.split(",")[1] || "";
+    if (used + data.length > BASE64_BUDGET) {
+      skipped++;
+      continue;
+    }
+    used += data.length;
+    blocks.push({ type: "document", source: { type: "base64", media_type: file.type, data } });
+  }
+  return { blocks, skipped };
+};
 
 // ---------------------------------------------------------------------------
 // Pre-análisis: evalúa la calidad del input y genera preguntas para afinarlo.
@@ -334,10 +363,16 @@ Si el input ya es sólido, usa score alto y pocas o cero preguntas. Cada pregunt
 un hint con un ejemplo de respuesta. TODO EN ESPAÑOL.
 
 CONTEXTO DEL NEGOCIO:
-${text || "(sin texto, revisa los PDFs adjuntos)"}`;
+${text || "(sin texto)"}${
+    files.length
+      ? `\n\nDocumentos adjuntos (${files.length}, se leerán en la investigación): ${files
+          .map((f) => f.name)
+          .join(", ")}. Asume que aportan detalle; no penalices por lo que puedan contener.`
+      : ""
+  }`;
 
-  const content = [...docBlocksOf(files), { type: "text", text: prompt }];
-  const data = await runStructured(client, content, PREANALYSIS_SCHEMA);
+  // El pre-análisis NO envía los PDFs (petición ligera y rápida); solo el texto.
+  const data = await runStructured(client, prompt, PREANALYSIS_SCHEMA);
 
   const questions = Array.isArray(data?.questions) ? data.questions : [];
   return {
@@ -585,7 +620,10 @@ export const analyzeBenchmark = async (
     year: "numeric",
   })} y estamos en el año ${now.getFullYear()}. Usa ${now.getFullYear()} como referencia temporal (precios, disponibilidad, "actualmente"); NO asumas años anteriores.`;
 
-  const docBlocks = docBlocksOf(files);
+  const { blocks: docBlocks, skipped } = budgetedDocBlocks(files);
+  if (skipped > 0) {
+    report(`Nota: ${skipped} PDF(s) se omitieron por tamaño para no exceder el límite.`);
+  }
 
   // Paso 1 · Identificar
   report("Identificando competidores reales del mercado...");
