@@ -300,6 +300,58 @@ const runStructured = async (client: Anthropic, content: any, schema: any): Prom
   }
 };
 
+// Esquemas para reparar salidas de los pasos con búsqueda (a veces el modelo
+// devuelve prosa alrededor del JSON y extractJson falla).
+const IDENTIFY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    competitors: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: { name: { type: "string" }, url: { type: "string" }, location: { type: "string" } },
+        required: ["name", "url", "location"],
+      },
+    },
+  },
+  required: ["competitors"],
+};
+
+const RESEARCH_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: { type: "string" },
+    url: { type: "string" },
+    location: { type: "string" },
+    pricing: { type: "string" },
+    advantages: { type: "array", items: { type: "string" } },
+    differentiator: { type: "string" },
+    priceScore: { type: "integer" },
+    valueScore: { type: "integer" },
+    selfConfidence: { type: "string" },
+  },
+  required: ["name", "url", "location", "pricing", "advantages", "differentiator", "priceScore", "valueScore", "selfConfidence"],
+};
+
+// Intenta parsear el texto; si no es JSON válido, lo reformatea con una llamada
+// estructurada (sin búsqueda) que garantiza el esquema.
+const parseOrStructure = async (client: Anthropic, rawText: string, schema: any): Promise<any> => {
+  try {
+    return extractJson(rawText);
+  } catch {
+    console.warn("Salida no era JSON puro; reparando con salida estructurada...");
+    return await runStructured(
+      client,
+      `Extrae la información del siguiente texto y devuélvela EXACTAMENTE conforme al esquema JSON. ` +
+        `No inventes: si un campo no aparece, usa "" para texto, [] para listas y 50 para puntajes.\n\nTEXTO:\n${rawText}`,
+      schema
+    );
+  }
+};
+
 // Presupuesto de PDFs para no exceder el límite de la API (~32MB por petición).
 // ~18M chars base64 ≈ ~13MB reales; deja margen para prompts y respuesta.
 const BASE64_BUDGET = 18_000_000;
@@ -410,7 +462,7 @@ Responde SOLO con JSON puro (sin texto adicional):
 {"competitors":[{"name":"Nombre real","url":"URL oficial o ''","location":"Ciudad/Zona"}]}`;
 
   const { text: out } = await runWithSearch(client, [...docBlocks, { type: "text", text: prompt }]);
-  const data = extractJson(out);
+  const data = await parseOrStructure(client, out, IDENTIFY_SCHEMA);
   const list = Array.isArray(data?.competitors) ? data.competitors : [];
   return list
     .filter((c: any) => c?.name)
@@ -437,7 +489,7 @@ Responde SOLO con JSON puro:
 
   try {
     const { text: out, sources } = await runWithSearch(client, [{ type: "text", text: prompt }]);
-    const data = extractJson(out);
+    const data = await parseOrStructure(client, out, RESEARCH_SCHEMA);
     return {
       name: String(data?.name || base.name),
       url: String(data?.url || base.url || ""),
