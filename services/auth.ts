@@ -6,7 +6,8 @@ export interface AuthSession {
   email: string;
   name: string;
   picture: string;
-  exp: number; // epoch en segundos (del ID token)
+  exp: number; // epoch en segundos
+  provider?: 'google' | 'guest';
 }
 
 const SESSION_KEY = 'ZEBRA_AUTH';
@@ -66,7 +67,48 @@ export const verifyCredential = (credential: string): AuthSession => {
     name: String(payload.name || email),
     picture: String(payload.picture || ''),
     exp: Number(payload.exp) || 0,
+    provider: 'google',
   };
+};
+
+// ---- Acceso como invitado (correo + contraseña, sin Google) ----
+// Los invitados se definen por entorno: GUEST_USERS="correo:clave,correo2:clave2".
+// Se inyecta en runtime en base64 (evita problemas de caracteres especiales).
+const getGuestUsersRaw = (): string => {
+  const b64 = process.env.GUEST_USERS_B64;
+  if (b64 && !b64.includes('__RUNTIME')) {
+    try {
+      return atob(b64);
+    } catch {
+      return '';
+    }
+  }
+  return (typeof window !== 'undefined' ? localStorage.getItem('GUEST_USERS') : '') || '';
+};
+
+const parseGuests = (raw: string): Array<{ email: string; password: string }> =>
+  raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const i = pair.indexOf(':');
+      if (i === -1) return null;
+      return { email: pair.slice(0, i).trim().toLowerCase(), password: pair.slice(i + 1) };
+    })
+    .filter((x): x is { email: string; password: string } => !!x);
+
+export const guestAccessAvailable = (): boolean => parseGuests(getGuestUsersRaw()).length > 0;
+
+export const verifyGuest = (email: string, password: string): AuthSession => {
+  const e = email.trim().toLowerCase();
+  if (!e || !password) throw new Error('Ingresa correo y contraseña.');
+  const users = parseGuests(getGuestUsersRaw());
+  if (users.length === 0) throw new Error('El acceso de invitado no está configurado.');
+  const match = users.find((u) => u.email === e && u.password === password);
+  if (!match) throw new Error('Correo o contraseña de invitado incorrectos.');
+  const DAYS = 30;
+  return { email: e, name: e, picture: '', exp: Math.floor(Date.now() / 1000) + DAYS * 86400, provider: 'guest' };
 };
 
 export const getSession = (): AuthSession | null => {
@@ -79,11 +121,14 @@ export const getSession = (): AuthSession | null => {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
-    // Re-valida el dominio por si cambió la config.
-    const domain = allowedDomain().toLowerCase();
-    if (!s.email.endsWith('@' + domain)) {
-      localStorage.removeItem(SESSION_KEY);
-      return null;
+    // Los usuarios de Google deben seguir siendo del dominio permitido.
+    // Los invitados no están sujetos a esa restricción.
+    if (s.provider !== 'guest') {
+      const domain = allowedDomain().toLowerCase();
+      if (!s.email.endsWith('@' + domain)) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
     }
     return s;
   } catch {

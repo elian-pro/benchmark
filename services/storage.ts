@@ -1,5 +1,7 @@
 // Almacenamiento de benchmarks en el navegador (localStorage). Sin backend.
+// Cada usuario ve SOLO sus propios benchmarks: la clave se separa por correo.
 import { BenchmarkResult } from '../types';
+import { getSession } from './auth';
 
 export interface StoredBenchmark {
   id: string;
@@ -9,8 +11,14 @@ export interface StoredBenchmark {
   result: BenchmarkResult;
 }
 
-const KEY = 'ZEBRA_BENCHMARKS';
+const BASE_KEY = 'ZEBRA_BENCHMARKS';
 const MAX = 60; // tope para no reventar la cuota de localStorage
+
+// Clave separada por usuario autenticado (correo). Sin sesión => 'anon'.
+const userKey = (): string => {
+  const email = getSession()?.email || 'anon';
+  return `${BASE_KEY}::${email.toLowerCase()}`;
+};
 
 const deriveTitle = (context: string): string => {
   const firstLine = (context || '').split('\n').map((l) => l.trim()).find((l) => l.length > 0) || '';
@@ -21,7 +29,7 @@ const deriveTitle = (context: string): string => {
 
 export const listBenchmarks = (): StoredBenchmark[] => {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(userKey());
     const list = raw ? (JSON.parse(raw) as StoredBenchmark[]) : [];
     return Array.isArray(list) ? list : [];
   } catch {
@@ -30,12 +38,13 @@ export const listBenchmarks = (): StoredBenchmark[] => {
 };
 
 const persist = (list: StoredBenchmark[]): void => {
+  const key = userKey();
   try {
-    localStorage.setItem(KEY, JSON.stringify(list));
+    localStorage.setItem(key, JSON.stringify(list));
   } catch {
     // Cuota excedida: conserva solo la mitad más reciente y reintenta.
     try {
-      localStorage.setItem(KEY, JSON.stringify(list.slice(0, Math.max(1, Math.floor(list.length / 2)))));
+      localStorage.setItem(key, JSON.stringify(list.slice(0, Math.max(1, Math.floor(list.length / 2)))));
     } catch {
       /* sin remedio: se pierde el guardado */
     }

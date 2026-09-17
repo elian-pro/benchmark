@@ -36,6 +36,18 @@ else
   echo "⚠️  No GOOGLE_CLIENT_ID found — login screen will ask to configure it"
 fi
 
+# Usuarios invitados: GUEST_USERS="correo:clave,correo2:clave2". Se inyecta en
+# base64 para no romper por caracteres especiales en las contraseñas.
+if [ -n "$GUEST_USERS" ]; then
+  echo "✅ Found GUEST_USERS, injecting (base64)..."
+  GUEST_USERS_B64=$(printf '%s' "$GUEST_USERS" | base64 | tr -d '\n')
+  for file in $JS_FILES; do
+    sed -i "s|__RUNTIME_GUEST_USERS_B64__|${GUEST_USERS_B64}|g" "$file"
+  done
+else
+  echo "ℹ️  No GUEST_USERS configured — guest login will be unavailable"
+fi
+
 echo "🚀 Starting nginx..."
 
 # Start nginx

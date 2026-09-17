@@ -5,6 +5,7 @@ import {
   getGoogleClientId,
   allowedDomain,
   verifyCredential,
+  verifyGuest,
   getSession,
   saveSession,
   clearSession,
@@ -19,13 +20,16 @@ declare global {
 const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(() => getSession());
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'google' | 'guest'>('google');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPassword, setGuestPassword] = useState('');
   const btnRef = useRef<HTMLDivElement>(null);
 
   const clientId = getGoogleClientId();
   const domain = allowedDomain();
 
   useEffect(() => {
-    if (session || !clientId) return;
+    if (session || mode !== 'google' || !clientId) return;
 
     let cancelled = false;
     const tryInit = () => {
@@ -63,16 +67,31 @@ const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [session, clientId]);
+  }, [session, clientId, mode]);
 
   const handleLogout = () => {
     clearSession();
     setSession(null);
     setError(null);
+    setMode('google');
+    setGuestEmail('');
+    setGuestPassword('');
     try {
       window.google?.accounts?.id?.disableAutoSelect?.();
     } catch {
       /* noop */
+    }
+  };
+
+  const handleGuestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const s = verifyGuest(guestEmail, guestPassword);
+      saveSession(s);
+      setError(null);
+      setSession(s);
+    } catch (err: any) {
+      setError(err.message || 'No se pudo iniciar sesión.');
     }
   };
 
@@ -84,7 +103,11 @@ const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="no-print fixed bottom-3 right-3 z-[60] flex items-center gap-2 px-3 py-1.5 bg-surface/90 backdrop-blur border border-line rounded-pill shadow-sm">
           {session.picture ? (
             <img src={session.picture} alt="" className="w-5 h-5 rounded-full" referrerPolicy="no-referrer" />
-          ) : null}
+          ) : (
+            <span className="text-[9px] text-muted font-mono uppercase border border-line rounded-pill px-1.5 py-0.5">
+              {session.provider === 'guest' ? 'Invitado' : 'Zebra'}
+            </span>
+          )}
           <span className="text-[10px] text-muted font-medium font-mono max-w-[160px] truncate">{session.email}</span>
           <button
             onClick={handleLogout}
@@ -107,23 +130,82 @@ const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         <div className="bg-surface rounded-card border border-line shadow-lg p-8 text-center">
-          <h1 className="text-lg font-semibold text-text">Acceso restringido</h1>
-          <p className="mt-2 text-sm text-muted font-normal leading-relaxed">
-            Inicia sesión con tu cuenta <span className="text-text font-medium">@{domain}</span>.
-          </p>
+          {mode === 'google' ? (
+            <>
+              <h1 className="text-lg font-semibold text-text">Acceso restringido</h1>
+              <p className="mt-2 text-sm text-muted font-normal leading-relaxed">
+                Inicia sesión con tu cuenta <span className="text-text font-medium">@{domain}</span>.
+              </p>
 
-          {clientId ? (
-            <div className="mt-6 flex justify-center min-h-[44px]">
-              <div ref={btnRef} />
-            </div>
+              {clientId ? (
+                <div className="mt-6 flex justify-center min-h-[44px]">
+                  <div ref={btnRef} />
+                </div>
+              ) : (
+                <div className="mt-6 p-4 bg-surface-2 border border-line rounded-control text-xs text-muted font-normal text-left">
+                  <p className="font-medium text-text mb-1">Falta configurar Google</p>
+                  Define <code className="font-mono">GOOGLE_CLIENT_ID</code> en el entorno, o en la consola:
+                  <code className="block mt-2 font-mono text-[11px] text-text break-all">
+                    localStorage.setItem('GOOGLE_CLIENT_ID', 'tu-id.apps.googleusercontent.com')
+                  </code>
+                </div>
+              )}
+
+              <div className="mt-6 flex items-center gap-3">
+                <span className="flex-1 h-px bg-line" />
+                <span className="text-[9px] text-muted font-mono uppercase tracking-wider">o</span>
+                <span className="flex-1 h-px bg-line" />
+              </div>
+              <button
+                onClick={() => {
+                  setMode('guest');
+                  setError(null);
+                }}
+                className="mt-4 w-full py-3 rounded-btn border border-line text-xs font-medium text-text hover:bg-surface-2 hover:border-accent transition-all uppercase tracking-widest font-mono"
+              >
+                Acceder como invitado
+              </button>
+            </>
           ) : (
-            <div className="mt-6 p-4 bg-surface-2 border border-line rounded-control text-xs text-muted font-normal text-left">
-              <p className="font-medium text-text mb-1">Falta configurar Google</p>
-              Define <code className="font-mono">GOOGLE_CLIENT_ID</code> en el entorno, o en la consola:
-              <code className="block mt-2 font-mono text-[11px] text-text break-all">
-                localStorage.setItem('GOOGLE_CLIENT_ID', 'tu-id.apps.googleusercontent.com')
-              </code>
-            </div>
+            <>
+              <h1 className="text-lg font-semibold text-text">Acceso de invitado</h1>
+              <p className="mt-2 text-sm text-muted font-normal leading-relaxed">
+                Entra con el correo y la contraseña que te compartieron.
+              </p>
+              <form onSubmit={handleGuestSubmit} className="mt-6 space-y-3 text-left">
+                <input
+                  type="email"
+                  autoComplete="username"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="correo@ejemplo.com"
+                  className="w-full p-3 bg-surface-2 border border-line rounded-input focus:shadow-[0_0_0_1px_var(--accent)] focus:border-accent transition-all outline-none text-text font-normal placeholder:text-muted text-sm"
+                />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={guestPassword}
+                  onChange={(e) => setGuestPassword(e.target.value)}
+                  placeholder="Contraseña"
+                  className="w-full p-3 bg-surface-2 border border-line rounded-input focus:shadow-[0_0_0_1px_var(--accent)] focus:border-accent transition-all outline-none text-text font-normal placeholder:text-muted text-sm"
+                />
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-btn bg-accent text-bg text-sm font-semibold uppercase tracking-[0.1em] hover:-translate-y-0.5 shadow-md hover:shadow-lg transition-all"
+                >
+                  Entrar
+                </button>
+              </form>
+              <button
+                onClick={() => {
+                  setMode('google');
+                  setError(null);
+                }}
+                className="mt-4 text-[10px] text-muted hover:text-text font-medium uppercase tracking-widest font-mono"
+              >
+                ← Volver
+              </button>
+            </>
           )}
 
           {error && (
@@ -134,7 +216,8 @@ const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         <p className="mt-6 text-center text-[10px] text-muted font-normal leading-relaxed">
-          Solo personal autorizado de Zebra Digital. El acceso se valida por tu dominio de Google.
+          Personal de Zebra: entra con Google. Clientes e invitados: usa el acceso con correo y contraseña.
+          Cada quien ve solo sus propios análisis.
         </p>
       </div>
     </div>
