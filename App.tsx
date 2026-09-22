@@ -9,6 +9,8 @@ import PreAnalysisPanel from './components/PreAnalysisPanel';
 import HistoryPanel from './components/HistoryPanel';
 import { analyzeBenchmark, preAnalyze } from './services/researchService';
 import { saveBenchmark } from './services/storage';
+import { getSession } from './services/auth';
+import { reportGuestSpend } from './services/reporting';
 
 const LOADING_STEPS = [
   "Consultando fuentes globales...",
@@ -85,7 +87,14 @@ const App: React.FC = () => {
       const ctx = buildContext();
       const result = await analyzeBenchmark(ctx, files, setLiveStatus);
       setReport(result);
-      try { saveBenchmark(ctx, result); } catch { /* almacenamiento no disponible */ }
+      try {
+        const rec = saveBenchmark(ctx, result);
+        // Reporta el gasto al webhook solo si el usuario es invitado.
+        const s = getSession();
+        if (s?.provider === 'guest') reportGuestSpend(s, rec);
+      } catch {
+        /* almacenamiento/reporte no disponible */
+      }
       setStage('report');
     } catch (err: any) {
       setError(err.message || 'Error al investigar el mercado.');
