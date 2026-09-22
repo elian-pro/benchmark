@@ -117,8 +117,9 @@ const computeCost = (u: RunUsage, model: string) => {
   };
 };
 
-// Tope de búsquedas web por llamada (acota el costo de cada paso con búsqueda).
-const MAX_SEARCH_USES = 4;
+// Topes por llamada para acotar el costo. Búsqueda + fetch de sitios/redes.
+const MAX_SEARCH_USES = 6;
+const MAX_FETCH_USES = 3;
 
 const SECTOR_HINT = `Prioriza FUENTES PRIMARIAS y del sector: sitios oficiales de cada
 competidor, portales y directorios especializados. Si el producto es inmobiliario, apóyate
@@ -247,6 +248,10 @@ const sourcesFrom = (content: any[]): Source[] => {
         }
       }
     }
+    // Páginas abiertas con web_fetch (sitio/redes del competidor).
+    if (b.type === "web_fetch_tool_result" && b.content?.url) {
+      out.push({ title: b.content.title || b.content.url, url: b.content.url });
+    }
   }
   return out;
 };
@@ -263,11 +268,16 @@ const runWithSearch = async (
   const messages: any[] = [{ role: "user", content: userContent }];
   const sources: Source[] = [];
   try {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 7; i++) {
       const resp = await client.messages.create({
         model: resolveModel(),
         max_tokens: 4000,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCH_USES } as any],
+        tools: [
+          { type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCH_USES } as any,
+          // web_fetch abre sitios/redes ya encontrados para leer precios y amenidades
+          // directamente (clave para negocios locales mal indexados en buscadores).
+          { type: "web_fetch_20260209", name: "web_fetch", max_uses: MAX_FETCH_USES } as any,
+        ],
         messages,
       });
       addUsage((resp as any).usage);
@@ -478,12 +488,21 @@ const researchCompetitor = async (
   const prompt = `Investiga A FONDO al competidor "${base.name}" (${base.location}) usando búsqueda web.
 Es competidor (directo o medianamente directo) del negocio descrito abajo. ${currentDateNote} ${SECTOR_HINT} ${PRICING_HINT}
 
+ESTRATEGIA DE BÚSQUEDA (la info de negocios locales suele estar mal indexada, insiste):
+- Prueba varias consultas: "${base.name} precios", "${base.name} ${base.location}", "${base.name} lotes m2",
+  "${base.name} Instagram", "${base.name} Facebook", "${base.name} Google Maps".
+- Si encuentras su SITIO WEB o REDES (incluido ${base.url || "su URL oficial"}), ÁBRELOS con web_fetch para
+  leer precios, amenidades y mensajes DIRECTAMENTE; no te quedes solo con los fragmentos del buscador.
+- Si tras buscar y abrir sitios aún falta un dato, NO devuelvas todo vacío: pon lo que sí encontraste y
+  ESTIMA un rango plausible con base en proyectos comparables de la zona, marcándolo como "Estimado: ...".
+  Baja selfConfidence a "baja" cuando estimes.
+
 CONTEXTO DEL NEGOCIO:
 ${context}
 
 Responde SOLO con JSON puro:
 {"name":"${base.name}","url":"URL confirmada o '${base.url}'","location":"Ubicación exacta",
-"pricing":"Precios en MXN o modelo, con cifras si las hay","advantages":["Ventaja 1","Ventaja 2","Ventaja 3"],
+"pricing":"Precios en MXN o modelo, con cifras (o 'Estimado: ...' si dedujiste)","advantages":["Ventaja 1","Ventaja 2","Ventaja 3"],
 "differentiator":"Su gancho principal","priceScore":0-100,"valueScore":0-100,
 "selfConfidence":"alta|media|baja"}`;
 
